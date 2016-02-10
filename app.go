@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"reflect"
 	"time"
 )
 
@@ -107,7 +108,7 @@ func (a *App) Run(arguments []string) (err error) {
 	// append help to commands
 	if a.Command(helpCommand.Name) == nil && !a.HideHelp {
 		a.Commands = append(a.Commands, helpCommand)
-		if (HelpFlag != BoolFlag{}) {
+		if (!reflect.DeepEqual(HelpFlag, BoolFlag{})) {
 			a.appendFlag(HelpFlag)
 		}
 	}
@@ -188,6 +189,13 @@ func (a *App) Run(arguments []string) (err error) {
 		}
 	}
 
+	verr := validateFlags(a.Flags, context)
+	if verr != nil {
+		fmt.Fprintln(a.Writer, verr)
+		ShowAppHelp(context)
+		return nerr
+	}
+
 	// Run default Action
 	a.Action(context)
 	return nil
@@ -207,7 +215,7 @@ func (a *App) RunAsSubcommand(ctx *Context) (err error) {
 	if len(a.Commands) > 0 {
 		if a.Command(helpCommand.Name) == nil && !a.HideHelp {
 			a.Commands = append(a.Commands, helpCommand)
-			if (HelpFlag != BoolFlag{}) {
+			if (!reflect.DeepEqual(HelpFlag, BoolFlag{})) {
 				a.appendFlag(HelpFlag)
 			}
 		}
@@ -299,6 +307,13 @@ func (a *App) RunAsSubcommand(ctx *Context) (err error) {
 		}
 	}
 
+	verr := validateFlags(a.Flags, context)
+	if verr != nil {
+		fmt.Fprintln(a.Writer, verr)
+		ShowSubcommandHelp(context)
+		return nerr
+	}
+
 	// Run default Action
 	a.Action(context)
 
@@ -318,7 +333,7 @@ func (a *App) Command(name string) *Command {
 
 func (a *App) hasFlag(flag Flag) bool {
 	for _, f := range a.Flags {
-		if flag == f {
+		if reflect.DeepEqual(flag, f) {
 			return true
 		}
 	}
