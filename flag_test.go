@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
-	"runtime"
 )
 
 var boolFlagTests = []struct {
@@ -64,7 +64,7 @@ func TestStringFlagWithEnvVarHelpOutput(t *testing.T) {
 			expectedSuffix = " [%APP_FOO%]"
 		}
 		if !strings.HasSuffix(output, expectedSuffix) {
-			t.Errorf("%s does not end with" + expectedSuffix, output)
+			t.Errorf("%s does not end with"+expectedSuffix, output)
 		}
 	}
 }
@@ -120,7 +120,7 @@ func TestStringSliceFlagWithEnvVarHelpOutput(t *testing.T) {
 			expectedSuffix = " [%APP_QWWX%]"
 		}
 		if !strings.HasSuffix(output, expectedSuffix) {
-			t.Errorf("%q does not end with" + expectedSuffix, output)
+			t.Errorf("%q does not end with"+expectedSuffix, output)
 		}
 	}
 }
@@ -157,7 +157,7 @@ func TestIntFlagWithEnvVarHelpOutput(t *testing.T) {
 			expectedSuffix = " [%APP_BAR%]"
 		}
 		if !strings.HasSuffix(output, expectedSuffix) {
-			t.Errorf("%s does not end with" + expectedSuffix, output)
+			t.Errorf("%s does not end with"+expectedSuffix, output)
 		}
 	}
 }
@@ -194,7 +194,7 @@ func TestDurationFlagWithEnvVarHelpOutput(t *testing.T) {
 			expectedSuffix = " [%APP_BAR%]"
 		}
 		if !strings.HasSuffix(output, expectedSuffix) {
-			t.Errorf("%s does not end with" + expectedSuffix, output)
+			t.Errorf("%s does not end with"+expectedSuffix, output)
 		}
 	}
 }
@@ -238,7 +238,7 @@ func TestIntSliceFlagWithEnvVarHelpOutput(t *testing.T) {
 			expectedSuffix = " [%APP_SMURF%]"
 		}
 		if !strings.HasSuffix(output, expectedSuffix) {
-			t.Errorf("%q does not end with" + expectedSuffix, output)
+			t.Errorf("%q does not end with"+expectedSuffix, output)
 		}
 	}
 }
@@ -275,7 +275,7 @@ func TestFloat64FlagWithEnvVarHelpOutput(t *testing.T) {
 			expectedSuffix = " [%APP_BAZ%]"
 		}
 		if !strings.HasSuffix(output, expectedSuffix) {
-			t.Errorf("%s does not end with" + expectedSuffix, output)
+			t.Errorf("%s does not end with"+expectedSuffix, output)
 		}
 	}
 }
@@ -313,7 +313,7 @@ func TestGenericFlagWithEnvVarHelpOutput(t *testing.T) {
 			expectedSuffix = " [%APP_ZAP%]"
 		}
 		if !strings.HasSuffix(output, expectedSuffix) {
-			t.Errorf("%s does not end with" + expectedSuffix, output)
+			t.Errorf("%s does not end with"+expectedSuffix, output)
 		}
 	}
 }
@@ -856,4 +856,144 @@ func TestParseGenericFromEnvCascade(t *testing.T) {
 		},
 	}
 	a.Run([]string{"run"})
+}
+
+// Testing of Flag.Validate
+type FlagValidationTest struct {
+	Name string
+	Args map[string][]string
+	Flag Flag
+}
+
+var tests = []FlagValidationTest{
+	FlagValidationTest{
+		Name: "stringflag",
+		Args: map[string][]string{
+			"ok": []string{"stringflag"},
+			"ko": []string{},
+		},
+		Flag: StringFlag{
+			Name: "stringflag",
+			Validate: func(f Flag, ctx *Context) error {
+				if ctx.String(f.GetName()) == "" {
+					return fmt.Errorf("Field %v not set", f.GetName())
+				}
+				return nil
+			},
+		},
+	},
+	FlagValidationTest{
+		Name: "intflag",
+		Args: map[string][]string{
+			"ok": []string{"1"},
+			"ko": []string{"0"},
+		},
+		Flag: IntFlag{
+			Name: "intflag",
+			Validate: func(f Flag, ctx *Context) error {
+				if ctx.Int(f.GetName()) <= 0 {
+					return fmt.Errorf("Arg %v should be >0", f.GetName())
+				}
+				return nil
+			},
+		},
+	},
+	FlagValidationTest{
+		Name: "stringsliceflag",
+		Args: map[string][]string{
+			"ok": []string{"test", "valid"},
+			"ko": []string{"test", "error"},
+		},
+		Flag: StringSliceFlag{
+			Name: "stringsliceflag",
+			Validate: func(f Flag, ctx *Context) error {
+				for _, val := range ctx.StringSlice(f.GetName()) {
+					if val == "error" {
+						return fmt.Errorf("Flag %v: \"error\" not accepted", f.GetName())
+					}
+				}
+				return nil
+			},
+		},
+	},
+	FlagValidationTest{
+		Name: "intsliceflag",
+		Args: map[string][]string{
+			"ok": []string{"1", "2"},
+			"ko": []string{"0", "1"},
+		},
+		Flag: IntSliceFlag{
+			Name: "intsliceflag",
+			Validate: func(f Flag, ctx *Context) error {
+				for _, val := range ctx.IntSlice(f.GetName()) {
+					if val <= 0 {
+						return fmt.Errorf("Flag %v: Invalid value %v. All values must be greater than 0", f.GetName(), val)
+					}
+				}
+				return nil
+			},
+		},
+	},
+	FlagValidationTest{
+		Name: "boolflag",
+		Args: map[string][]string{
+			"ok": []string{""},
+			"ko": []string{},
+		},
+		Flag: BoolFlag{
+			Name: "boolflag",
+			Validate: func(f Flag, ctx *Context) error {
+				if !ctx.Bool(f.GetName()) {
+					return fmt.Errorf("Flag %v: switch required", f.GetName())
+				}
+				return nil
+			},
+		},
+	},
+	FlagValidationTest{
+		Name: "float64flag",
+		Args: map[string][]string{
+			"ok": []string{"2"},
+			"ko": []string{"0"},
+		},
+		Flag: Float64Flag{
+			Name: "float64flag",
+			Validate: func(f Flag, ctx *Context) error {
+				if ctx.Float64(f.GetName()) <= 0 {
+					return fmt.Errorf("Arg %v should be >0", f.GetName())
+				}
+				return nil
+			},
+		},
+	},
+}
+
+func TestFlagValidation(t *testing.T) {
+	for _, test := range tests {
+		for result := range test.Args {
+			targs := test.Args[result]
+			t.Log("Testing", test.Name, result, targs)
+			set := flagSet(test.Name, []Flag{test.Flag})
+			args := make([]string, 0)
+			for _, targ := range targs {
+				args = append(args, "--"+test.Name)
+				args = append(args, targ)
+			}
+			err := set.Parse(args)
+			if err != nil {
+				t.Errorf("Error parsing arguments", err)
+			}
+			err = normalizeFlags([]Flag{test.Flag}, set)
+			if err != nil {
+				t.Errorf("Error normalizing arguments", err)
+			}
+			c := NewContext(nil, set, nil)
+			err = validateFlags([]Flag{test.Flag}, c)
+			if result == "ok" {
+				expect(t, err, nil)
+			} else {
+				expect(t, err != nil, true)
+			}
+		}
+	}
 }
