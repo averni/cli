@@ -37,6 +37,7 @@ type Flag interface {
 	// Apply Flag settings to the given flag set
 	Apply(*flag.FlagSet)
 	GetName() string
+	DoValidate(c *Context) error
 }
 
 func flagSet(name string, flags []Flag) *flag.FlagSet {
@@ -56,6 +57,16 @@ func eachName(longName string, fn func(string)) {
 	}
 }
 
+func validateFlags(flags []Flag, c *Context) error {
+	for _, f := range flags {
+		err := f.DoValidate(c)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Generic is a generic parseable type identified by a specific flag
 type Generic interface {
 	Set(value string) error
@@ -64,10 +75,11 @@ type Generic interface {
 
 // GenericFlag is the flag type for types implementing Generic
 type GenericFlag struct {
-	Name   string
-	Value  Generic
-	Usage  string
-	EnvVar string
+	Name     string
+	Value    Generic
+	Usage    string
+	EnvVar   string
+	Validate func(f Flag, context *Context) error
 }
 
 // String returns the string representation of the generic flag to display the
@@ -111,6 +123,13 @@ func (f GenericFlag) GetName() string {
 	return f.Name
 }
 
+func (f GenericFlag) DoValidate(c *Context) error {
+	if f.Validate == nil {
+		return nil
+	}
+	return f.Validate(f, c)
+}
+
 // StringSlice is an opaque type for []string to satisfy flag.Value
 type StringSlice []string
 
@@ -133,10 +152,11 @@ func (f *StringSlice) Value() []string {
 // StringSlice is a string flag that can be specified multiple times on the
 // command-line
 type StringSliceFlag struct {
-	Name   string
-	Value  *StringSlice
-	Usage  string
-	EnvVar string
+	Name     string
+	Value    *StringSlice
+	Usage    string
+	EnvVar   string
+	Validate func(f Flag, context *Context) error
 }
 
 // String returns the usage
@@ -175,6 +195,13 @@ func (f StringSliceFlag) GetName() string {
 	return f.Name
 }
 
+func (f StringSliceFlag) DoValidate(c *Context) error {
+	if f.Validate == nil {
+		return nil
+	}
+	return f.Validate(f, c)
+}
+
 // StringSlice is an opaque type for []int to satisfy flag.Value
 type IntSlice []int
 
@@ -202,10 +229,11 @@ func (f *IntSlice) Value() []int {
 // IntSliceFlag is an int flag that can be specified multiple times on the
 // command-line
 type IntSliceFlag struct {
-	Name   string
-	Value  *IntSlice
-	Usage  string
-	EnvVar string
+	Name     string
+	Value    *IntSlice
+	Usage    string
+	EnvVar   string
+	Validate func(f Flag, context *Context) error
 }
 
 // String returns the usage
@@ -247,12 +275,20 @@ func (f IntSliceFlag) GetName() string {
 	return f.Name
 }
 
+func (f IntSliceFlag) DoValidate(c *Context) error {
+	if f.Validate == nil {
+		return nil
+	}
+	return f.Validate(f, c)
+}
+
 // BoolFlag is a switch that defaults to false
 type BoolFlag struct {
 	Name        string
 	Usage       string
 	EnvVar      string
 	Destination *bool
+	Validate    func(f Flag, context *Context) error
 }
 
 // String returns a readable representation of this value (for usage defaults)
@@ -289,6 +325,13 @@ func (f BoolFlag) GetName() string {
 	return f.Name
 }
 
+func (f BoolFlag) DoValidate(c *Context) error {
+	if f.Validate == nil {
+		return nil
+	}
+	return f.Validate(f, c)
+}
+
 // BoolTFlag this represents a boolean flag that is true by default, but can
 // still be set to false by --some-flag=false
 type BoolTFlag struct {
@@ -296,6 +339,7 @@ type BoolTFlag struct {
 	Usage       string
 	EnvVar      string
 	Destination *bool
+	Validate    func(f Flag, context *Context) error
 }
 
 // String returns a readable representation of this value (for usage defaults)
@@ -332,6 +376,13 @@ func (f BoolTFlag) GetName() string {
 	return f.Name
 }
 
+func (f BoolTFlag) DoValidate(c *Context) error {
+	if f.Validate == nil {
+		return nil
+	}
+	return f.Validate(f, c)
+}
+
 // StringFlag represents a flag that takes as string value
 type StringFlag struct {
 	Name        string
@@ -339,6 +390,7 @@ type StringFlag struct {
 	Usage       string
 	EnvVar      string
 	Destination *string
+	Validate    func(f Flag, context *Context) error
 }
 
 // String returns the usage
@@ -379,6 +431,13 @@ func (f StringFlag) GetName() string {
 	return f.Name
 }
 
+func (f StringFlag) DoValidate(c *Context) error {
+	if f.Validate == nil {
+		return nil
+	}
+	return f.Validate(f, c)
+}
+
 // IntFlag is a flag that takes an integer
 // Errors if the value provided cannot be parsed
 type IntFlag struct {
@@ -387,6 +446,7 @@ type IntFlag struct {
 	Usage       string
 	EnvVar      string
 	Destination *int
+	Validate    func(f Flag, context *Context) error
 }
 
 // String returns the usage
@@ -422,6 +482,13 @@ func (f IntFlag) GetName() string {
 	return f.Name
 }
 
+func (f IntFlag) DoValidate(c *Context) error {
+	if f.Validate == nil {
+		return nil
+	}
+	return f.Validate(f, c)
+}
+
 // DurationFlag is a flag that takes a duration specified in Go's duration
 // format: https://golang.org/pkg/time/#ParseDuration
 type DurationFlag struct {
@@ -430,6 +497,7 @@ type DurationFlag struct {
 	Usage       string
 	EnvVar      string
 	Destination *time.Duration
+	Validate    func(f Flag, context *Context) error
 }
 
 // String returns a readable representation of this value (for usage defaults)
@@ -465,6 +533,13 @@ func (f DurationFlag) GetName() string {
 	return f.Name
 }
 
+func (f DurationFlag) DoValidate(c *Context) error {
+	if f.Validate == nil {
+		return nil
+	}
+	return f.Validate(f, c)
+}
+
 // Float64Flag is a flag that takes an float value
 // Errors if the value provided cannot be parsed
 type Float64Flag struct {
@@ -473,6 +548,7 @@ type Float64Flag struct {
 	Usage       string
 	EnvVar      string
 	Destination *float64
+	Validate    func(f Flag, context *Context) error
 }
 
 // String returns the usage
@@ -505,6 +581,13 @@ func (f Float64Flag) Apply(set *flag.FlagSet) {
 
 func (f Float64Flag) GetName() string {
 	return f.Name
+}
+
+func (f Float64Flag) DoValidate(c *Context) error {
+	if f.Validate == nil {
+		return nil
+	}
+	return f.Validate(f, c)
 }
 
 func prefixFor(name string) (prefix string) {
